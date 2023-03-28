@@ -1,18 +1,14 @@
-const fs = require("fs");
-const path = require("path");
-const shortid = require("shortid");
+const Contact = require("./contactModel");
 
-const contactsPath = path.join(__dirname, "../../db/contacts.json");
-
-function listContacts(req, res) {
-  const contacts = JSON.parse(fs.readFileSync(contactsPath, "utf8"));
-  res.status(200).json(contacts);
+async function listContacts(req, res) {
+  const contacts = await Contact.find({});
+  res.status(200).json({ contacts });
 }
 
-function getContactById(req, res) {
-  const contacts = JSON.parse(fs.readFileSync(contactsPath, "utf-8"));
+async function getContactById(req, res) {
   const id = req.params.contactId;
-  const contact = contacts.find((c) => c.id === id);
+  console.log(id);
+  const contact = await Contact.findById(id);
 
   if (contact) {
     res.status(200).json(contact);
@@ -21,35 +17,25 @@ function getContactById(req, res) {
   }
 }
 
-function addContact(req, res) {
-  const contacts = JSON.parse(fs.readFileSync(contactsPath, "utf-8"));
+async function addContact(req, res) {
   const { name, email, phone } = req.body;
 
-  const id = shortid();
-  const newContact = { id, name, email, phone };
-  contacts.push(newContact);
-
-  fs.writeFileSync(contactsPath, JSON.stringify(contacts));
+  const newContact = await Contact.create({ name, email, phone });
   res.status(201).json(newContact);
 }
 
-function removeContact(req, res) {
-  const contacts = JSON.parse(fs.readFileSync(contactsPath, "utf-8"));
+async function removeContact(req, res) {
   const id = req.params.contactId;
-  const index = contacts.findIndex((c) => c.id === id);
+  const result = await Contact.deleteOne({ _id: id });
 
-  if (index !== -1) {
-    contacts.splice(index, 1);
-    fs.writeFileSync(contactsPath, JSON.stringify(contacts));
-    res.status(200).json({ message: "contact deleted" });
+  if (result.deletedCount === 1) {
+    res.status(200).json({ message: "Contact deleted successfully" });
   } else {
-    res.status(404).json({ message: "Not found" });
+    res.status(404).json({ message: "not found" });
   }
 }
 
-function updateContact(req, res) {
-  const contacts = JSON.parse(fs.readFileSync(contactsPath, "utf-8"));
-
+async function updateContact(req, res) {
   const id = req.params.contactId;
   const { name, email, phone } = req.body;
 
@@ -58,22 +44,45 @@ function updateContact(req, res) {
     return;
   }
 
-  const index = contacts.findIndex((c) => c.id === id);
+  const contact = await Contact.findByIdAndUpdate(
+    id,
+    { name, email, phone },
+    { new: true }
+  );
 
-  if (index !== -1) {
-    contacts[index].name = name || contacts[index].name;
-    contacts[index].email = email || contacts[index].email;
-    contacts[index].phone = phone || contacts[index].phone;
-
-    fs.writeFileSync(contactsPath, JSON.stringify(contacts));
-    res.status(200).json(contacts[index]);
+  if (contact) {
+    res.status(200).json(contact);
+  } else {
+    res.status(404).json({ message: "Not Found" });
   }
 }
 
+async function updateContactStatus(req, res) {
+  const id = req.params.contactId;
+  const { favorite } = req.body;
+
+  if (typeof favorite !== "boolean") {
+    return res
+      .status(400)
+      .json({ message: "missing field favorite or invalid type" });
+  }
+  const contact = await Contact.findByIdAndUpdate(
+    id,
+    { favorite },
+    { new: true }
+  );
+
+  if (contact) {
+    res.status(200).json(contact);
+  } else {
+    res.status(404).json({ message: "not Found" });
+  }
+}
 module.exports = {
   listContacts,
   getContactById,
   removeContact,
   addContact,
   updateContact,
+  updateContactStatus,
 };
