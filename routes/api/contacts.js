@@ -8,7 +8,7 @@ const {
   removeContact,
   updateContact,
   updateContactStatus,
-} = require("./index");
+} = require("./postService");
 
 const router = express.Router();
 
