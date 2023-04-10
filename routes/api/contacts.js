@@ -1,5 +1,6 @@
 const express = require("express");
 const Joi = require("joi");
+const authMiddleware = require("../../Middleware/authMiddleware");
 
 const {
   listContacts,
@@ -19,13 +20,13 @@ const contactSchema = Joi.object({
   favorite: Joi.boolean().required(),
 });
 
-router.get("/", listContacts);
+router.get("/", authMiddleware, listContacts);
 
-router.get("/:contactId", getContactById);
+router.get("/:contactId", authMiddleware, getContactById);
 
-router.delete("/:contactId", removeContact);
+router.delete("/:contactId", authMiddleware, removeContact);
 
-router.post("/", (req, res) => {
+router.post("/", authMiddleware, (req, res) => {
   const { error } = contactSchema.validate(req.body);
   if (error) {
     res.status(400).json({ message: "missing required name field" });
@@ -36,7 +37,7 @@ router.post("/", (req, res) => {
   addContact(req, res);
 });
 
-router.put("/:contactId", (req, res) => {
+router.put("/:contactId", authMiddleware, (req, res) => {
   const { error } = contactSchema.validate(req.body);
   if (error) {
     res.status(400).json({ message: "missing fields" });
@@ -44,7 +45,7 @@ router.put("/:contactId", (req, res) => {
   updateContact(req, res);
 });
 
-router.patch("/:contactId/favorite", (req, res) => {
+router.patch("/:contactId/favorite", authMiddleware, (req, res) => {
   const { error } = Joi.object({ favorite: Joi.boolean().required() }).validate(
     req.body
   );

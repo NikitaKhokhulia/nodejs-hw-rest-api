@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Joi = require("joi");
-const User = require("../user/userModel");
+const User = require("../Models/userModel");
 
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -19,7 +19,6 @@ const login = async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    console.log(user);
 
     if (!user) {
       return res.status(401).json({ message: "Email or password is wrong" });
@@ -31,9 +30,9 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Email or password is wrong" });
     }
 
-    console.log(process.env.JWT_SECRET);
+    const payload = { userId: user._id };
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
@@ -50,4 +49,23 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { login };
+const authenticate = async (req, res, next) => {
+  try {
+    const token = req.header("Authorization").replace("Bearer ", "");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findOne({ _id: decoded.userId, token });
+
+    if (!user) {
+      throw new Error();
+    }
+
+    req.user = user;
+    req.token = token;
+
+    next();
+  } catch (error) {
+    res.status(401).json({ error: "Not authorized to access this resource" });
+  }
+};
+
+module.exports = { login, authenticate };
