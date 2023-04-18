@@ -5,6 +5,8 @@ const gravatar = require("gravatar");
 const jimp = require("jimp");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs/promises");
+const nodemailer = require("nodemailer");
+require("dotenv").config();
 
 const registrationSchema = Joi.object({
   email: Joi.string().required(),
@@ -14,7 +16,6 @@ const registrationSchema = Joi.object({
     .default("starter"),
   avatarURL: Joi.string().allow(null).default(null),
 });
-
 
 const registerUser = async (req, res) => {
   try {
@@ -33,6 +34,8 @@ const registerUser = async (req, res) => {
       });
     }
 
+    const verificationToken = uuidv4();
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -41,7 +44,10 @@ const registerUser = async (req, res) => {
       email,
       password: hashedPassword,
       avatarURL,
+      verificationToken,
     });
+
+    await sendVerificationEmail(email, verificationToken);
 
     res.status(201).json({
       user: {
@@ -50,7 +56,7 @@ const registerUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log(error);
+    console.log(error); // добавлено логирование ошибки в консоль
     res.status(500).json({
       message: "Something went wrong",
     });
@@ -80,7 +86,57 @@ const updateAvatar = async (req, res) => {
   }
 };
 
+const verifyUser = async (req, res) => {
+  const { verificationToken } = req.params;
+  try {
+    const user = await User.findOneAndUpdate(
+      { verificationToken },
+      { verificationToken: null, verify: true },
+      { new: true }
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ message: "Verification successful" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USERNAME,
+    pass: process.env.EMAIL_PASSWORD,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
+
+const sendVerificationEmail = async (email, verificationToken) => {
+  const mailOptions = {
+    from: "usertest1993@meta.ua",
+    to: email,
+    subject: "Подтвердите свой email",
+    html: `<a href="http://localhost:3000/users/verify/${verificationToken}">Подтвердите свой email</a>`,
+  };
+
+  try {
+    console.log(mailOptions);
+    await transporter.sendMail(mailOptions);
+    console.log(`Verification email has been sent to ${email}`);
+  } catch (error) {
+    console.log(`Error while sending email to ${email}: `, error);
+  }
+};
+
 module.exports = {
   registerUser,
   updateAvatar,
+  verifyUser,
+  sendVerificationEmail,
 };
