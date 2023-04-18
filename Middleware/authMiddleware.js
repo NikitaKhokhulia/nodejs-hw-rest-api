@@ -3,17 +3,23 @@ const User = require("../Models/userModel");
 
 const authMiddleware = async (req, res, next) => {
   try {
-    const token = req.headers.authorization.split(" ")[1];
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decodedToken.userId;
-    const user = await User.findById(userId);
-    if (!user || user.token !== token) {
-      throw new Error("Not authorized");
+    const token = req.header("Authorization").replace("Bearer ", "");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findOne({
+      _id: decoded._id,
+      token,
+      verify: true, // добавлено условие, чтобы проверить, верифицирован ли email
+    });
+
+    if (!user) {
+      throw new Error();
     }
-    req.user = { id: userId, email: user.email };
+
+    req.user = user;
+    req.token = token;
     next();
-  } catch (error) {
-    return res.status(401).json({ message: "Not authorized" });
+  } catch (err) {
+    res.status(401).json({ message: "Please authenticate" });
   }
 };
 
